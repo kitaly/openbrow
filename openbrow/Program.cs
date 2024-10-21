@@ -1,22 +1,36 @@
 ﻿using openbrow;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 
-Stopwatch stopwatch = new Stopwatch();
+string url = string.Empty;
+string profile = string.Empty;
 
-stopwatch.Start();
-
-if (args.Length != 1)
+foreach (var arg in args)
 {
-    Console.WriteLine("The website url parameter is mandatory");
+    if (arg.StartsWith("-url="))
+    {
+        url = arg.Substring(5);
+    }
+    else if (arg.StartsWith("-profile="))
+    {
+        profile = arg.Substring(9).Trim('"');
+    }
+}
 
+if (string.IsNullOrEmpty(url) && string.IsNullOrEmpty(profile))
+{
+    Console.WriteLine("Invalid arguments. Please provide either -url and/or -profile arguments.");
     return;
 }
 
-if (Uri.TryCreate(args[0], UriKind.Absolute, out Uri? uri))
+if (string.IsNullOrEmpty(profile))
 {
-    var isChromeRunning = Utilities.IsChromeRunningWithProfile("Default", out Process? process);
+    profile = "Default";
+}
 
-    Console.WriteLine($"Is Chrome Running executed in: {stopwatch.Elapsed.TotalMilliseconds} ms");
+if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+{
+    var isChromeRunning = Utilities.IsChromeRunningWithProfile(profile, out Process? process);
 
     if (isChromeRunning && process != null)
     {
@@ -24,22 +38,12 @@ if (Uri.TryCreate(args[0], UriKind.Absolute, out Uri? uri))
         var task1 = Task.Run(() => Utilities.BringToFront(process));
 
         // focus tab
-        var task2 = Task.Run(async () => await ChromeUtilities.FocusOrCreateTab(uri));
+        var task2 = Task.Run(async () => await ChromeUtilities.FocusOrCreateTab(url));
 
         Task.WhenAll(task1, task2).Wait();
-
-        Console.WriteLine($"Focus tab executed in: {stopwatch.Elapsed.TotalMilliseconds} ms");
     }
     else
     {
-        Utilities.StartChrome(uri);
+        Utilities.StartChrome(url, profile);
     }
 }
-else
-{
-    Console.WriteLine("The website url parameter is not a valid url");
-}
-
-stopwatch.Stop();
-
-Console.WriteLine($"Program executed in: {stopwatch.Elapsed.TotalMilliseconds} ms");

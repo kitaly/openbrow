@@ -34,6 +34,7 @@ namespace openbrow
             }
 
             process = foundProcess;
+
             return found;
         }
 
@@ -56,17 +57,34 @@ namespace openbrow
             }
         }
 
-        internal static void StartChrome(Uri uri)
+        internal static void StartChrome(string url, string profile)
         {
             // Specify the executable file and the arguments
             string executablePath = @"C:\Program Files\Google\Chrome\Application\chrome.exe"; // Replace with your executable path
-            string arguments = $"--profile-directory=\"Default\" --remote-debugging-port=9222 --remote-allow-origins=* {uri.AbsoluteUri}"; // Replace with your command-line arguments
+            string args = string.Empty;
+
+            if (string.IsNullOrEmpty(url))
+            {
+                args = $"--profile-directory=\"{profile}\"";
+            }
+            else
+            {
+                if (Uri.TryCreate(url, UriKind.Absolute, out Uri? uri))
+                {
+                    args = $"--profile-directory=\"{profile}\" --remote-debugging-port=9222 --remote-allow-origins=* {uri.AbsoluteUri}"; // Replace with your command-line arguments
+                }
+                else
+                {
+                    Console.WriteLine("The url parameter is not a valid url");
+                    return;
+                }
+            }
 
             // Create a new process start info
             ProcessStartInfo startInfo = new()
             {
                 FileName = executablePath,
-                Arguments = arguments
+                Arguments = args
             };
 
             try
@@ -104,10 +122,10 @@ namespace openbrow
                             int processId = Convert.ToInt32(obj["ProcessId"]);
 
                             // Get the command line (can be null for system processes)
-                            string commandLine = obj["CommandLine"]?.ToString();
+                            string commandLine = obj["CommandLine"]?.ToString() ?? string.Empty;
 
                             // Add the process ID and command line to the list
-                            processes.Add((processId, commandLine ?? string.Empty));
+                            processes.Add((processId, commandLine));
                         }
                         catch (Exception ex)
                         {

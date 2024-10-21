@@ -1,6 +1,4 @@
 ﻿using openbrow.Models;
-using System;
-using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Net.WebSockets;
 using System.Text;
@@ -10,37 +8,53 @@ namespace openbrow
 {
     internal class ChromeUtilities
     {
-        internal static async Task FocusOrCreateTab(Uri uri)
+        internal static async Task FocusOrCreateTab(string url)
         {
-            HttpClient client = new();
-            string apiUrl = "http://127.0.0.1:9222/json";
-
-            try
+            if (string.IsNullOrEmpty(url))
             {
-                // Send the GET request
-                HttpResponseMessage response = await client.GetAsync(apiUrl);
+                return;
+            }
 
-                // Check if the request was successful
-                response.EnsureSuccessStatusCode();
+            if (Uri.TryCreate(url, UriKind.Absolute, out Uri? uri))
+            {
+                HttpClient client = new();
+                string apiUrl = "http://127.0.0.1:9222/json";
 
-                // Read the response content as a string
-                var chromeTabs = await response.Content.ReadFromJsonAsync<ChromeTab[]>();
-
-                var chromeTab = chromeTabs.FirstOrDefault(ct => ct.Url?.Contains(uri.AbsoluteUri) ?? false);
-
-                if (chromeTab != null)
+                try
                 {
-                    await SendWebSocketCommand(chromeTab.WebSocketDebuggerUrl, BringToFrontCommand());
+                    // Send the GET request
+                    HttpResponseMessage response = await client.GetAsync(apiUrl);
+
+                    // Check if the request was successful
+                    response.EnsureSuccessStatusCode();
+
+                    // Read the response content as a string
+                    var chromeTabs = await response.Content.ReadFromJsonAsync<ChromeTab[]>();
+
+                    if (chromeTabs != null && chromeTabs.Length > 0)
+                    {
+                        var chromeTab = chromeTabs.FirstOrDefault(ct => ct.Url?.Contains(uri.AbsoluteUri) ?? false);
+
+                        if (chromeTab != null)
+                        {
+                            await SendWebSocketCommand(chromeTab.WebSocketDebuggerUrl, BringToFrontCommand());
+                        }
+                        else
+                        {
+                            await SendWebSocketCommand(chromeTabs.First().WebSocketDebuggerUrl, OpenNewTabCommand(uri.AbsoluteUri));
+                        }
+                    }
                 }
-                else
+                catch (HttpRequestException e)
                 {
-                    await SendWebSocketCommand(chromeTabs.First().WebSocketDebuggerUrl, OpenNewTabCommand(uri.AbsoluteUri));
+                    // Handle any errors that occur during the request
+                    Console.WriteLine($"Request error: {e.Message}");
                 }
             }
-            catch (HttpRequestException e)
+            else
             {
-                // Handle any errors that occur during the request
-                Console.WriteLine($"Request error: {e.Message}");
+                Console.WriteLine("The url parameter is not a valid url");
+                return;
             }
         }
 
